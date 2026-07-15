@@ -16,6 +16,10 @@ data/VOC-ALS.xlsx
 data/features.csv
 data/features_multitask.csv
 
+# External validation dataset (Minsk2020 ALS database) -- real patient audio,
+# fetched locally per src/train_two_task_external_val.py, never committed.
+data/external_minsk/
+
 # OS cruft
 .DS_Store
 

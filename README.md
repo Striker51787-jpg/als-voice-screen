@@ -147,17 +147,45 @@ removes that optimism:
 python src/evaluate.py
 ```
 
-## Why there's no external validation
-A second, independent dataset is the strongest possible check, but a clean one
-isn't feasible here. TORGO (the obvious English dysarthria corpus) doesn't
-provide the 8 specific VOC-ALS tasks the model needs, lumps ALS speakers with
-cerebral-palsy speakers without clean per-speaker labels, is English (VOC-ALS is
-Italian — a domain shift), and has only ~15 speakers. Running the frozen model
-on it would measure task/language mismatch, not generalization. The honest
-substitute is the rigorous *internal* validation above; a true external-validation
-protocol (obtain a task-matched dataset → extract the same 8-task features →
-score the frozen model → report the performance drop) is documented here for
-future work.
+## External validation
+
+**TORGO** (the obvious English dysarthria corpus) was ruled out: it doesn't
+provide the 8 specific VOC-ALS tasks the production model needs, lumps ALS
+speakers with cerebral-palsy speakers without clean per-speaker labels, is
+English (VOC-ALS is Italian — a domain shift), and has only ~15 speakers.
+Running the frozen 8-task model on it would measure task/language mismatch,
+not generalization.
+
+Instead, we found a genuinely compatible independent dataset: the
+**Minsk2020 ALS database** (31 ALS patients, 33 healthy controls, Belarus,
+different recording hardware and population than VOC-ALS) — Vashkevich M.,
+Rushkevich Yu., *"Classification of ALS patients based on acoustic analysis
+of sustained vowel phonations"*, Biomedical Signal Processing and Control,
+2021 ([doi.org/10.1016/j.bspc.2020.102350](https://doi.org/10.1016/j.bspc.2020.102350),
+[github.com/Mak-Sim/Minsk2020_ALS_database](https://github.com/Mak-Sim/Minsk2020_ALS_database),
+GPL-3.0). It shares 2 of our 8 tasks (sustained vowels /a/ and /i/), so a
+**phonationA + phonationI-only** model — trained *purely* on VOC-ALS, never
+shown a single Minsk recording — could be scored on it as a true
+cross-population, cross-equipment external test (script:
+`src/train_two_task_external_val.py`; raw audio isn't redistributed here —
+see the script for how to fetch it from the source above).
+
+**Result**: external ROC-AUC **0.77** (95% CI [0.64, 0.88], n=64) for logistic
+regression — comparable to, even slightly above, VOC-ALS's own 5-fold CV
+estimate for the same 2-task model (0.66), and close to the full 8-task
+model's held-out AUC (0.76). This is real evidence the acoustic signal isn't
+just an artifact of one dataset's recording setup or population.
+
+**Important caveat**: this only held for logistic regression. Random forest
+and gradient boosting both collapsed on the external set (predicted every
+participant as ALS, AUC 0.50–0.64, no real discrimination) — they appear to
+overfit to VOC-ALS-specific feature-value thresholds that don't transfer.
+This is itself a useful finding: it's a point in favor of preferring the
+simpler linear model in production, not just here.
+
+Two honest limits: this only validates 2 of the production model's 8 tasks
+(Minsk doesn't have audio for the other 6), and n=64 external participants
+is small, hence the wide confidence interval.
 
 ## Extra tooling
 - **`src/audio_quality.py`** — objective recording-quality checks (clipping,
