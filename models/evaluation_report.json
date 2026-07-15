@@ -1,0 +1,47 @@
+{
+  "dataset": "VOC-ALS multi-task features",
+  "n_total": 153,
+  "n_train": 122,
+  "n_test": 31,
+  "k_best": 40,
+  "nested_cv": {
+    "roc_auc": 0.7234266787112316,
+    "balanced_accuracy": 0.547877145438121,
+    "selected_models_per_fold": [
+      "logistic_regression",
+      "random_forest",
+      "logistic_regression",
+      "logistic_regression",
+      "gradient_boosting"
+    ]
+  },
+  "heldout": {
+    "selected_model": "logistic_regression",
+    "roc_auc": 0.755,
+    "operating_point_default_0.5": {
+      "threshold": 0.5,
+      "sensitivity": 0.81,
+      "specificity": 0.5,
+      "balanced_accuracy": 0.655,
+      "confusion_matrix": {
+        "tn": 5,
+        "fp": 5,
+        "fn": 4,
+        "tp": 17
+      }
+    },
+    "operating_point_screening_0.85_sensitivity": {
+      "threshold": 0.231,
+      "sensitivity": 1.0,
+      "specificity": 0.0,
+      "balanced_accuracy": 0.5,
+      "confusion_matrix": {
+        "tn": 0,
+        "fp": 10,
+        "fn": 0,
+        "tp": 21
+      }
+    }
+  },
+  "notes": "Nested CV estimates the full selection procedure; the held-out set is scored exactly once. Small n (test set ~31) means all figures carry wide uncertainty -- see bootstrap_auc.py for the CV-level CI. The screening threshold is chosen on the train split only; the app still uses 0.5."
+}

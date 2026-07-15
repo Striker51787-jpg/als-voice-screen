@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+.Python
+
+# Training data -- VOC-ALS requires a registered Synapse Data Use Agreement;
+# do not redistribute raw recordings or derived feature CSVs publicly. The
+# live site only needs the already-trained models/*.joblib files, not this.
+data/raw_audio/
+data/raw/
+data/VOC-ALS.xlsx
+data/features.csv
+data/features_multitask.csv
+
+# OS cruft
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
