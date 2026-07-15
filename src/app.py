@@ -19,6 +19,8 @@ import streamlit as st
 from features import extract_features
 from audio_quality import assess_quality, quality_penalty
 from report import generate_report
+from export_result import build_result_pdf
+from constants import DISCLAIMER
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 MULTITASK_MODEL_PATH = os.path.join(MODELS_DIR, "als_multitask_detector.joblib")
@@ -38,13 +40,6 @@ TASK_INSTRUCTIONS = {
     "rhythmPA": 'Repeat "pa-pa-pa-pa..." as fast and evenly as you can for about 5 seconds.',
     "rhythmTA": 'Repeat "ta-ta-ta-ta..." as fast and evenly as you can for about 5 seconds.',
 }
-
-DISCLAIMER = (
-    "This score comes from an acoustic pattern-matching model, not a diagnosis. "
-    "Things like a raspy voice, intoxication, Parkinson's, or a stroke can produce similar "
-    "acoustic markers (jitter, shimmer, low HNR), and this model has no way to tell them apart. "
-    "If you get a high score, talk to a neurologist. Don't treat this as a result on its own."
-)
 
 # Pre-screen questions, asked one at a time. Each flags a condition known to
 # alter voice acoustics in ways the model can't distinguish from ALS (see
@@ -175,18 +170,20 @@ def show_prescreen_summary(reliability, reasons):
 def render_step_tracker(done_flags):
     """Row of numbered circles (filled once that task's clip is captured)
     instead of a plain "N of 8 done" line."""
+    completed = sum(done_flags)
     circles = ""
     for i, done in enumerate(done_flags):
         bg = "#1d4ed8" if done else "#e5e7eb"
-        fg = "white" if done else "#6b7280"
+        fg = "white" if done else "#374151"  # 8.33:1 against the unfilled circle's #e5e7eb -- meets WCAG AA
         label = "&#10003;" if done else str(i + 1)
         circles += (
             f'<div style="width:30px;height:30px;border-radius:50%;display:flex;'
             f'align-items:center;justify-content:center;background:{bg};color:{fg};'
-            f'font-size:13px;font-weight:600;">{label}</div>'
+            f'font-size:13px;font-weight:600;flex-shrink:0;">{label}</div>'
         )
     st.markdown(
-        f'<div style="display:flex;gap:8px;margin:10px 0 18px 0;">{circles}</div>',
+        f'<div role="img" aria-label="{completed} of {len(done_flags)} recordings captured" '
+        f'style="display:flex;gap:8px;margin:10px 0 18px 0;flex-wrap:wrap;">{circles}</div>',
         unsafe_allow_html=True,
     )
 
@@ -195,15 +192,17 @@ def render_gauge(prob):
     """Horizontal zoned gauge (control-like / uncertain / ALS-consistent)
     with a marker at the actual score, instead of a bare progress bar."""
     pct = min(max(prob, 0.0), 1.0) * 100
+    zone = "control-like" if pct < 40 else "uncertain" if pct < 60 else "ALS-consistent"
     st.markdown(
         f"""
-        <div style="position:relative;height:34px;border-radius:8px;overflow:visible;
+        <div role="img" aria-label="Score {prob:.2f} out of 1, in the {zone} range"
+             style="position:relative;height:34px;border-radius:8px;overflow:visible;
                     background:linear-gradient(to right, #16a34a 0%, #16a34a 40%,
                     #e5e7eb 40%, #e5e7eb 60%, #dc2626 60%, #dc2626 100%);margin:10px 0 2px 0;">
           <div style="position:absolute;top:-5px;left:{pct}%;transform:translateX(-50%);
                       width:4px;height:44px;background:#111827;border-radius:2px;"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#9ca3af;">
           <span>Control-like</span><span>Uncertain</span><span>ALS-consistent</span>
         </div>
         """,
@@ -238,6 +237,10 @@ def show_result(prob, model_name, feature_row, reliability=None, reasons=None,
     st.metric("Score", f"{prob:.2f}", help="0 = control-like, 1 = ALS-consistent")
     st.write(f"{label} (model: `{model_name}`)")
     render_gauge(prob)
+    st.caption(
+        "This model's performance carries real uncertainty (ROC-AUC 95% CI [0.61, 0.78] "
+        "on n=153) -- a single score like this one should be read loosely, not precisely."
+    )
     st.info(DISCLAIMER)
     with st.expander("Extracted features"):
         st.dataframe(feature_row.T.rename(columns={0: "value"}))
@@ -251,6 +254,13 @@ def show_result(prob, model_name, feature_row, reliability=None, reasons=None,
                 )
         if report_key in st.session_state:
             st.write(st.session_state[report_key])
+
+        pdf_bytes = build_result_pdf(prob, label, reliability, reasons or [], model_name)
+        st.download_button(
+            "Download result summary (PDF)", data=pdf_bytes,
+            file_name="als_voice_screen_result.pdf", mime="application/pdf",
+            key=f"{key_prefix}_download",
+        )
 
 
 st.set_page_config(page_title="ALS Voice Screen", layout="centered")

@@ -38,9 +38,21 @@ def assess_quality(audio_path: str) -> dict:
     duration_s = len(y) / sr
 
     peak = np.max(np.abs(y))
+
+    # librosa.effects.split measures silence relative to the clip's own peak
+    # RMS; with a genuinely flat/dead-mic signal (peak ~= 0) that reference is
+    # meaningless and split() degenerately returns the whole array as "voiced"
+    # instead of silent. Treat near-zero-peak audio as fully silent up front.
+    if peak < 1e-6:
+        return {
+            "duration_s": round(duration_s, 2), "clipping_pct": 0.0, "silence_pct": 100.0,
+            "snr_db": -20.0, "warnings": ["Recording is total silence -- check your microphone."],
+            "ok": False,
+        }
+
     # Normalize the clipping test to the clip's own peak so it works whether the
     # audio is full-scale float or quieter.
-    threshold = 0.99 * peak if peak > 0 else 1.0
+    threshold = 0.99 * peak
     clipping_pct = float(np.mean(np.abs(y) >= threshold) * 100.0)
 
     intervals = librosa.effects.split(y, top_db=TOP_DB)

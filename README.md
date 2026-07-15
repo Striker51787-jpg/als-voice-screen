@@ -181,6 +181,24 @@ future work.
      more loosely than Claude — still cautious and non-diagnostic, just less
      precise about repeating every caveat.
   3. **Deterministic template** — always available, zero setup.
+- **`src/export_result.py`** — builds a one-page PDF summary of a result
+  (score, gauge, reliability, flagged factors, disclaimer) via matplotlib, no
+  new dependency. Wired into the app as a "Download result summary" button.
+
+## Running tests
+```bash
+pip install pytest  # already in requirements.txt
+pytest tests/
+```
+Covers `audio_quality.assess_quality` (clipping/silence/duration detection on
+synthetic clips), `app.compute_reliability`/`reliability_band` (pre-screen
+scoring arithmetic), `report.generate_report`'s fallback chain (degrades to
+the template with no API key and no Ollama), and `evaluate.py`'s threshold/
+confusion-matrix helpers. Fast (~3s) — no real audio or model retraining
+involved. This suite caught a real bug during development: `assess_quality`
+was silently failing to flag a fully silent recording because
+`librosa.effects.split` has no reference peak to compare against on an
+all-zero signal — fixed with an explicit near-zero-peak check.
 
 ## Important caveats (for the presentation)
 - Small dataset sizes (~100s of subjects) mean results should be reported with
